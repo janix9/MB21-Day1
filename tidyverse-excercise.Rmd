@@ -39,7 +39,7 @@ download.file("https://www.dropbox.com/s/5jy18d1thntcc5t/COVID-19_Vaccinations_i
 #### Read the file
 
 ```{r}
-
+covid_us <- readr::read_csv("covid.csv.tar.gz")
 ```
 
 
@@ -50,13 +50,14 @@ Now the data is in R workspace. Do the following
 ### Count the number of variabes and rows
 
 ```{r}
-
+ncol(covid_us)
+nrow(covid_us)
 ```
 
 ### Print out the first 6 rows of the data.frame
 
 ```{r}
-
+head(covid_us, n=6)
 
 ```
 
@@ -68,7 +69,8 @@ Now the data is in R workspace. Do the following
 - Obviously there are data points not from states. What are they?
 
 ```{r}
-
+covid_us %>% count(Recip_State)
+covid_us %>% filter(is.na(Recip_State)==T)
 ```
 
 
@@ -79,7 +81,7 @@ Now the data is in R workspace. Do the following
 The variable Date is character. Convert it to a Date variable.
 
 ```{r}
-
+covid_us <- covid_us %>% mutate(Date=as.Date(Date, "%m/%d/%Y"))
 ```
 
 ### Erase unnecessary rows
@@ -87,7 +89,7 @@ The variable Date is character. Convert it to a Date variable.
 First remove the non-country entries
 
 ```{r}
-
+covid_us <- covid_us %>% filter(Recip_County!="Unknown County")
 ```
 
 
@@ -96,7 +98,9 @@ First remove the non-country entries
 Find the latest date of the data, then subset the data with only the newest date for each country
 
 ```{r}
-
+covid_us %>% summarize(lastdate = max(Date))
+covid_us_first <- covid_us %>% group_by(FIPS) %>%
+  filter(Date == max(Date))
 ```
 
 ### Max percentatge, min percentage
@@ -104,6 +108,9 @@ Find the latest date of the data, then subset the data with only the newest date
 Which county has the highest vaccination rate? What is the number?
 
 ```{r}
+covid_us_first %>% ungroup() %>%
+  filter(Series_Complete_Pop_Pct == max(Series_Complete_Pop_Pct, na.rm=T)) %>%
+  select(Recip_County, Series_Complete_Pop_Pct)
 
 ```
 
@@ -115,19 +122,26 @@ Which county has the highest vaccination rate? What is the number?
 Using the latest data created above, find out proportion of counties with more than 50 percent of vaccine take up rate.
 
 ```{r}
-
+covid_us_first %>% ungroup() %>%
+  summarize(high = sum(Series_Complete_Pop_Pct>50, na.rm=T)/sum(is.na(Series_Complete_Pop_Pct)==F))
 ```
 
 ### Proportion of county with more than 50 percent vaccination rate, by state (latest)
 
 ```{r}
-
+covid_us_first %>% group_by(Recip_State) %>%
+  summarize(prophigh = sum(Series_Complete_Pop_Pct>50, na.rm=T)/sum(is.na(Series_Complete_Pop_Pct)==F))
 ```
 
 ### Date when the vaccination rate exceeded 10 percent in each county
 
 ```{r}
-
+covid_us %>% filter(Series_Complete_Pop_Pct>10) %>%
+  group_by(Recip_County) %>%
+  filter(Date == min(Date)) %>% select(Date,Recip_County,Recip_State,Series_Complete_Pop_Pct)
+# Why are there first dates with >50%?
+covid_us %>% filter(Recip_County=="Aransas County") %>% select(Date,Completeness_pct,Series_Complete_Pop_Pct)
+# Because transferred data was incomplete/unmatched until that date
 ```
 
 ### Aggregate the number of vaccination
@@ -137,7 +151,9 @@ and average of vaccination pct across counties for each day (Hint: grouping and 
 
 
 ```{r}
-
+covid_bystate.date <- covid_us %>% group_by(Recip_State, Date) %>%
+  summarize(n_vacc = sum(Series_Complete_Yes),
+            avg_vacc = mean(Series_Complete_Pop_Pct))
 ```
 
 
@@ -149,13 +165,21 @@ Now let's visualize the outputs using ggplot
 ### Time series plot of total vaccination in the US
 
 ```{r}
-
+ggplot(covid_us %>% 
+         group_by(Date) %>% 
+         summarize(total_vacc = sum(Series_Complete_Yes, na.rm=T)), 
+       aes(Date, total_vacc)) +
+  geom_line()
 ```
 
 
 ### Time series plot of total vaccination by the state
 
 ```{r}
-
+ggplot(covid_us %>% 
+         group_by(Recip_State, Date) %>% 
+         summarize(total_vacc = sum(Series_Complete_Yes, na.rm=T)), 
+       aes(Date, total_vacc, group=Recip_State, col=Recip_State)) +
+  geom_line()
 ```
 
