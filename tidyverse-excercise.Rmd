@@ -32,6 +32,7 @@ The data is here: https://www.dropbox.com/s/5jy18d1thntcc5t/COVID-19_Vaccination
 #### Download the file
 
 ```{r}
+download.file("https://www.dropbox.com/s/5jy18d1thntcc5t/COVID-19_Vaccinations_in_the_United_States_County.csv.tar.gz?dl=true", destfile = "covid.csv.tar.gz")
 
 ```
 
